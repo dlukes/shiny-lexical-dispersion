@@ -6,6 +6,10 @@ import pandas as pd
 import regex as re
 from shiny import App, reactive, render, ui
 
+# We don't use Jinja2 directly in the app, but without the import, shinylive currently
+# doesn't bundle Jinja2's wheel and the library therefore fails to load.
+import jinja2
+
 mpl.rcParams.update(
     {
         "figure.dpi": 300,
