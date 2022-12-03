@@ -63,7 +63,7 @@ def warn(id, msg, **notification_show_kwargs):
 
 def server(input, output, session):
     @reactive.Calc
-    def tokenized_text():
+    def tokenize_text():
         text = input.text().strip()
         if not text:
             warn("no-text", "Please provide an input text.")
@@ -74,7 +74,7 @@ def server(input, output, session):
         return tokenize(text)
 
     @reactive.Calc
-    def split_words():
+    def word2y():
         words = input.words().strip()
         if not words:
             warn("no-words", "Please provide words to plot.")
@@ -88,11 +88,10 @@ def server(input, output, session):
                 words = words.lower()
         return {f"{icase}{w}": i for (i, w) in enumerate(reversed(words.split()))}
 
-    @output
-    @render.plot(alt="Dispersion plot of chosen words in input text")
-    def dispersion_plot():
-        text = tokenized_text()
-        words = split_words()
+    @reactive.Calc
+    def analyze():
+        text = tokenize_text()
+        words = word2y()
         if not (text and words):
             return
 
@@ -106,47 +105,53 @@ def server(input, output, session):
                 # below), so...
                 for word in words:
                     if re.fullmatch(word, tok):
-                        return words[word]
+                        return word
 
         else:
 
             def match(tok, words):
                 if tok in words:
-                    return words[tok]
+                    return tok
 
         xs = []
         ys = []
+        freq_dist = {w: 0 for w in words}
         for x, tok in enumerate(text):
-            if (y := match(tok, words)) is not None:
+            if (word := match(tok, words)) is not None:
                 xs.append(x)
-                ys.append(y)
+                ys.append(words[word])
+                freq_dist[word] += 1
         if not (xs and ys):
-            warn("no-plot", "None of the words were found.")
+            warn("no-result", "None of the words were found.")
             return
-        ui.notification_remove("no-plot")
+        ui.notification_remove("no-result")
 
+        return xs, ys, freq_dist
+
+    @output
+    @render.plot(alt="Dispersion plot of chosen words in input text")
+    def dispersion_plot():
+        if (analysis := analyze()) is None:
+            return
+        xs, ys, freq_dist = analysis
         fig, ax = plt.subplots()
         ax.plot(xs, ys, marker="|", markersize=20, linestyle="")
         ax.set_xlabel("Word offset")
         ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter("{x:,.0f}"))
-        ax.set_yticks(range(len(words)), labels=list(words))
-        ax.set_ylim(-1, len(words))
+        ax.set_yticks(range(len(freq_dist)), labels=list(freq_dist))
+        ax.set_ylim(-1, len(freq_dist))
         ax.tick_params(axis="both", length=0)
         return fig
 
     @output
     @render.table()
     def freq_dist():
-        text = tokenized_text()
-        words = set(split_words())
-        if not (text and words):
+        if (analysis := analyze()) is None:
             return
-
-        freq_dist = Counter(t for t in text if t in words)
-        for w in words:
-            if w not in freq_dist:
-                freq_dist[w] = 0
-        df = pd.DataFrame(freq_dist.most_common(), columns=["word", "frequency"])
+        _, _, freq_dist = analysis
+        df = pd.DataFrame(freq_dist.items(), columns=["word", "frequency"]).sort_values(
+            ["frequency", "word"], ascending=False
+        )
         return df
 
 
