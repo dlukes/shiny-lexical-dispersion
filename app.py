@@ -47,13 +47,22 @@ def tokenize(text):
     )
 
 
+def warn(id, msg, **notification_show_kwargs):
+    # NOTE: duration=None should leave the notification around indefinitely, but
+    # currently doesn't, see https://github.com/rstudio/py-shiny/issues/257
+    ui.notification_show(
+        **notification_show_kwargs, ui=msg, id=id, type="warning", duration=None
+    )
+
+
 def server(input, output, session):
     @reactive.Calc
     def tokenized_text():
         text = input.text().strip()
         if not text:
-            ui.notification_show("Please provide an input text.", type="warning")
+            warn("no-text", "Please provide an input text.")
             return []
+        ui.notification_remove("no-text")
         if input.icase():
             text = text.lower()
         return tokenize(text)
@@ -62,8 +71,9 @@ def server(input, output, session):
     def split_words():
         words = input.words().strip()
         if not words:
-            ui.notification_show("Please provide words to plot.", type="warning")
+            warn("no-words", "Please provide words to plot.")
             return {}
+        ui.notification_remove("no-words")
         if input.icase():
             words = words.lower()
         return {w: i for (i, w) in enumerate(reversed(words.split()))}
@@ -82,6 +92,10 @@ def server(input, output, session):
             if tok in words:
                 xs.append(i)
                 ys.append(words[tok])
+        if not (xs and ys):
+            warn("no-plot", "None of the words were found.")
+            return
+        ui.notification_remove("no-plot")
 
         fig, ax = plt.subplots()
         ax.plot(xs, ys, marker="|", markersize=20, linestyle="")
