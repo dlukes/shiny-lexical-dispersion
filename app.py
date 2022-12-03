@@ -30,7 +30,7 @@ app_ui = ui.page_fluid(
         ui.panel_sidebar(
             ui.markdown(next(Path(".").rglob("README.md")).read_text("utf-8")),
             ui.input_text_area("text", "Text to analyze"),
-            ui.input_text("words", "Space-separated words to plot"),
+            ui.input_text("words", "Words to find in text"),
             ui.row(
                 ui.input_checkbox("icase", "Ignore case"),
                 ui.input_checkbox("regex", "Regular expressions"),
