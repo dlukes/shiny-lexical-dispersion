@@ -99,9 +99,11 @@ def server(input, output, session):
 
         fig, ax = plt.subplots()
         ax.plot(xs, ys, marker="|", markersize=20, linestyle="")
-        ax.set_yticks(range(len(words)), labels=list(words))
-        ax.tick_params(axis="both", length=0)
         ax.set_xlabel("Word offset")
+        ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter("{x:,.0f}"))
+        ax.set_yticks(range(len(words)), labels=list(words))
+        ax.set_ylim(-1, len(words))
+        ax.tick_params(axis="both", length=0)
         return fig
 
     @output
