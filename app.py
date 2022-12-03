@@ -28,10 +28,13 @@ app_ui = ui.page_fluid(
     ui.br(),
     ui.layout_sidebar(
         ui.panel_sidebar(
+            ui.markdown(Path("README.md").read_text("utf-8")),
             ui.input_text_area("text", "Text to analyze"),
             ui.input_text("words", "Space-separated words to plot"),
-            ui.input_checkbox("icase", "Ignore case"),
-            ui.markdown(Path("README.md").read_text("utf-8")),
+            ui.row(
+                ui.input_checkbox("icase", "Ignore case"),
+                ui.input_checkbox("regex", "Regular expressions"),
+            ),
         ),
         ui.panel_main(
             ui.output_plot("dispersion_plot"),
@@ -77,9 +80,13 @@ def server(input, output, session):
             warn("no-words", "Please provide words to plot.")
             return {}
         ui.notification_remove("no-words")
+        icase = ""
         if input.icase():
-            words = words.lower()
-        return {w: i for (i, w) in enumerate(reversed(words.split()))}
+            if input.regex():
+                icase = "(?i)"
+            else:
+                words = words.lower()
+        return {f"{icase}{w}": i for (i, w) in enumerate(reversed(words.split()))}
 
     @output
     @render.plot(alt="Dispersion plot of chosen words in input text")
@@ -89,12 +96,30 @@ def server(input, output, session):
         if not (text and words):
             return
 
+        if input.regex():
+
+            def match(tok, words):
+                # Doing a nested loop for each token is sort of inefficient, but it will
+                # do for a demo. Plus NLTK's too-functional-for-its-own-good
+                # implementation of dispersion plot does the same for non-regex
+                # matching, where it's blatantly unnecessary (see other match function
+                # below), so...
+                for word in words:
+                    if re.fullmatch(word, tok):
+                        return words[word]
+
+        else:
+
+            def match(tok, words):
+                if tok in words:
+                    return words[tok]
+
         xs = []
         ys = []
-        for i, tok in enumerate(text):
-            if tok in words:
-                xs.append(i)
-                ys.append(words[tok])
+        for x, tok in enumerate(text):
+            if (y := match(tok, words)) is not None:
+                xs.append(x)
+                ys.append(y)
         if not (xs and ys):
             warn("no-plot", "None of the words were found.")
             return
