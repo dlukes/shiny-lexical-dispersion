@@ -1,7 +1,7 @@
-from collections import Counter
 from pathlib import Path
 
 import matplotlib as mpl
+from matplotlib import ticker
 import matplotlib.pyplot as plt
 import pandas as pd
 import regex as re
@@ -134,10 +134,10 @@ def server(input, output, session):
         if (analysis := analyze()) is None:
             return
         xs, ys, freq_dist = analysis
-        fig, ax = plt.subplots()
+        fig, [[ax]] = plt.subplots(squeeze=False)
         ax.plot(xs, ys, marker="|", markersize=20, linestyle="")
         ax.set_xlabel("Word offset")
-        ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter("{x:,.0f}"))
+        ax.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:,.0f}"))
         ax.set_yticks(range(len(freq_dist)), labels=list(freq_dist))
         ax.set_ylim(-1, len(freq_dist))
         ax.tick_params(axis="both", length=0)
