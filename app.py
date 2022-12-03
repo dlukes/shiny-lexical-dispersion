@@ -28,7 +28,7 @@ app_ui = ui.page_fluid(
     ui.br(),
     ui.layout_sidebar(
         ui.panel_sidebar(
-            ui.markdown(Path("README.md").read_text("utf-8")),
+            ui.markdown(next(Path(".").rglob("README.md")).read_text("utf-8")),
             ui.input_text_area("text", "Text to analyze"),
             ui.input_text("words", "Space-separated words to plot"),
             ui.row(
