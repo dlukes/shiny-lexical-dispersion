@@ -1,4 +1,5 @@
 from collections import Counter
+from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -24,18 +25,20 @@ mpl.rcParams.update(
 )
 
 app_ui = ui.page_fluid(
-    ui.panel_title("Lexical dispersion plot"),
+    ui.br(),
     ui.layout_sidebar(
         ui.panel_sidebar(
             ui.input_text_area("text", "Text to analyze"),
             ui.input_text("words", "Space-separated words to plot"),
             ui.input_checkbox("icase", "Ignore case"),
+            ui.markdown(Path("README.md").read_text("utf-8")),
         ),
         ui.panel_main(
             ui.output_plot("dispersion_plot"),
             ui.output_table("freq_dist"),
         ),
     ),
+    title="Lexical dispersion plot",
 )
 
 
