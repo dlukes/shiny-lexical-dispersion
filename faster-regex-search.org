@@ -1,0 +1,129 @@
+#+title: Faster Regex Search
+
+* Task
+Starting with a list of regexes and a list of tokens, try to match each of the regexes and store the first regex which matches, if any.
+
+Note: we want to store the regexes, not the strings that matched. This makes it non-trivial. If we just build a straightforward union regex out of the list of regexes, we won't know which part matched.
+
+#+begin_src jupyter-python
+import regex as re
+from nltk.book import *
+
+regexes = [r"(?i:elinor.*)", r"(?i:marianne.*)",
+           r"(?i:edward.*)", r"(?i:willoughby.*)", r"(?i:colonel.*)"]
+text2
+#+end_src
+
+#+RESULTS:
+: <Text: Sense and Sensibility by Jane Austen 1811>
+
+* Possible approaches
+** Match list of regexes in nested for-loop
+Pros: Straightforward.
+
+Cons: Matching a list of regexes in a loop over and over is really slow compared to doing just one regex match per token, especially if the list is long and matches are found only seldom.
+
+#+begin_src jupyter-python
+patterns = [re.compile(r) for r in regexes]
+patterns
+#+end_src
+
+#+RESULTS:
+: [regex.Regex('(?i:elinor.*)', flags=regex.F | regex.V1),
+:  regex.Regex('(?i:marianne.*)', flags=regex.F | regex.V1),
+:  regex.Regex('(?i:edward.*)', flags=regex.F | regex.V1),
+:  regex.Regex('(?i:willoughby.*)', flags=regex.F | regex.V1),
+:  regex.Regex('(?i:colonel.*)', flags=regex.F | regex.V1)]
+
+#+begin_src jupyter-python
+results = []
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python
+%%timeit
+for token in text2:
+    for pat in patterns:
+        if pat.match(token):
+            results.append(pat.pattern)
+            break
+#+end_src
+
+#+RESULTS:
+: 84.4 ms ± 564 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+#+begin_src jupyter-python
+len(results), results[:10]
+#+end_src
+
+#+RESULTS:
+#+begin_example
+(154629,
+ ['(?i:elinor.*)',
+  '(?i:marianne.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:marianne.*)',
+  '(?i:edward.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:edward.*)'])
+#+end_example
+
+** Build a union with named groups
+Pros: Only one regex match attempt per token.
+
+Cons: Implemenation is a bit more involved and therefore error/bug-prone. In theory, group names can clash with group names entered by user. I could use UUIDs to make collisions extremely unlikely, but in practice, I don't think anyone will actually use named groups when entering regexes into this app. Also, the abstraction is a bit more leaky: the user thinks he's entering separate regexes, but since they all end up being concatenated to one, this affects the syntax that can be used: in particular, inline flags like =(?i)= can only appear at the start of a regular expression, so specifying a query like =foo (?i)bar= won't work. Still, these are all rather advanced features that even regular users of regular expressions often aren't aware of, so let's trade them for the performance improvement.
+
+#+begin_src jupyter-python
+group2regex = {f"g{i}": r for i, r in enumerate(regexes)}
+pat = re.compile("|".join(f"(?P<{g}>{r})" for g, r in group2regex.items()))
+group2regex, pat
+#+end_src
+
+#+RESULTS:
+: ({'g0': '(?i:elinor.*)',
+:   'g1': '(?i:marianne.*)',
+:   'g2': '(?i:edward.*)',
+:   'g3': '(?i:willoughby.*)',
+:   'g4': '(?i:colonel.*)'},
+:  regex.Regex('(?P<g0>(?i:elinor.*))|(?P<g1>(?i:marianne.*))|(?P<g2>(?i:edward.*))|(?P<g3>(?i:willoughby.*))|(?P<g4>(?i:colonel.*))', flags=regex.F | regex.V1))
+
+#+begin_src jupyter-python
+results = []
+pat.match("Marianne's")
+#+end_src
+
+#+RESULTS:
+: <regex.Match object; span=(0, 10), match="Marianne's">
+
+#+begin_src jupyter-python
+%%timeit
+for token in text2:
+    if (m := pat.match(token)) is not None:
+        results.append(group2regex[m.lastgroup])
+#+end_src
+
+#+RESULTS:
+: 26.7 ms ± 294 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
+
+#+begin_src jupyter-python
+len(results), results[:10]
+#+end_src
+
+#+RESULTS:
+#+begin_example
+(154629,
+ ['(?i:elinor.*)',
+  '(?i:marianne.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:marianne.*)',
+  '(?i:edward.*)',
+  '(?i:elinor.*)',
+  '(?i:elinor.*)',
+  '(?i:edward.*)'])
+#+end_example

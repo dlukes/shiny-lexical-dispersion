@@ -15,3 +15,6 @@ You can:
   browser
 - [browse the source code](https://github.com/dlukes/shiny-lexical-dispersion/) on
   GitHub
+- [learn
+  more](https://dlukes.github.io/shiny-lexical-dispersion/faster-regex-search.html)
+  about an optimization in the regex search feature

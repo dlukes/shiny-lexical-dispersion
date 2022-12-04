@@ -11,6 +11,7 @@ from shiny import App, reactive, render, ui
 # doesn't bundle Jinja2's wheel and the library therefore fails to load.
 import jinja2
 
+re.DEFAULT_VERSION = re.VERSION1
 mpl.rcParams.update(
     {
         "figure.dpi": 300,
@@ -69,7 +70,7 @@ def server(input, output, session):
             warn("no-text", "Please provide an input text.")
             return []
         ui.notification_remove("no-text")
-        if input.icase():
+        if input.icase() and not input.regex():
             text = text.lower()
         return tokenize(text)
 
@@ -80,13 +81,9 @@ def server(input, output, session):
             warn("no-words", "Please provide words to plot.")
             return {}
         ui.notification_remove("no-words")
-        icase = ""
-        if input.icase():
-            if input.regex():
-                icase = "(?i)"
-            else:
-                words = words.lower()
-        return {f"{icase}{w}": i for (i, w) in enumerate(reversed(words.split()))}
+        if input.icase() and not input.regex():
+            words = words.lower()
+        return {w: i for i, w in enumerate(reversed(words.split()))}
 
     @reactive.Calc
     def analyze():
@@ -96,20 +93,22 @@ def server(input, output, session):
             return
 
         if input.regex():
+            # Map assigned group name to corresponding regex. The matched group's name
+            # will be available via Match.lastgroup, and so this will allow us to figure
+            # out which regex actually matched.
+            group2re: dict[str | None, str] = {f"g{i}": r for i, r in enumerate(words)}
+            pat = re.compile(
+                "|".join(f"(?P<{g}>{r})" for g, r in group2re.items()),
+                flags=re.IGNORECASE if input.icase() else 0,
+            )
 
-            def match(tok, words):
-                # Doing a nested loop for each token is sort of inefficient, but it will
-                # do for a demo. Plus NLTK's too-functional-for-its-own-good
-                # implementation of dispersion plot does the same for non-regex
-                # matching, where it's blatantly unnecessary (see other match function
-                # below), so...
-                for word in words:
-                    if re.fullmatch(word, tok):
-                        return word
+            def match(tok: str) -> str | None:
+                if (m := pat.fullmatch(tok)) is not None:
+                    return group2re[m.lastgroup]
 
         else:
 
-            def match(tok, words):
+            def match(tok: str) -> str | None:
                 if tok in words:
                     return tok
 
@@ -117,7 +116,7 @@ def server(input, output, session):
         ys = []
         freq_dist = {w: 0 for w in words}
         for x, tok in enumerate(text):
-            if (word := match(tok, words)) is not None:
+            if (word := match(tok)) is not None:
                 xs.append(x)
                 ys.append(words[word])
                 freq_dist[word] += 1
