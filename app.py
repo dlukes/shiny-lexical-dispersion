@@ -133,7 +133,7 @@ def server(input, output, session):
         if (analysis := analyze()) is None:
             return
         xs, ys, freq_dist = analysis
-        fig, [[ax]] = plt.subplots(squeeze=False)
+        fig, ax = plt.subplots()
         ax.plot(xs, ys, marker="|", markersize=20, linestyle="")
         ax.set_xlabel("Word offset")
         ax.xaxis.set_major_formatter(ticker.StrMethodFormatter("{x:,.0f}"))
